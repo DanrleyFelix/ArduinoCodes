@@ -1,11 +1,6 @@
-// Danrley Santos Felix
-// Atividade - Sensor de vazão
-// O sinal PWM irá simular o sensor YF-S401
-
-#include "protocolo.h"
-
-#define e0 2                        
-#define s0 3                       
+#define e0 2                       
+#define s0 3                        
+#define maximo 128
 
 void conta_pulsos();
 void obter_vazao();
@@ -25,17 +20,15 @@ char valorSerial;
 char primeiroValor='0';
 
 void setup() {
-
   Serial.begin(115200);
-  pinMode(s0, OUTPUT);
-  pinMode(e0, INPUT);
-  attachInterrupt(digitalPinToInterrupt(e0),conta_pulsos, RISING);
+  pinMode(s0,OUTPUT);
+  pinMode(e0,INPUT);
+  attachInterrupt(digitalPinToInterrupt(e0),conta_pulsos,RISING);
   analogWrite(s0,maximo);
-  
 }
 
 void loop(){
-  checar_protocolo(valorSerial, primeiroValor, checando, s0);
+  checar_serial();
   if (contaPeriodos>=100)
     calcula_frequencia();
   timeout=millis();
@@ -69,4 +62,36 @@ void calcula_frequencia(void){
   frequencia=1000000/(periodoTotal/contaPeriodos);
   contaPeriodos=0;
   periodoTotal=0;
+}
+
+void checar_serial(void){
+  char comando[3]={'R','F','V'};
+  if (Serial.available()>0){
+    valorSerial=Serial.read();
+    if (valorSerial=='b')
+      analogWrite(s0,0);
+    else if (valorSerial=='a')
+      analogWrite(s0,maximo);
+    // Iniciar protocolo
+    if (valorSerial=='T' and checando==0){
+      primeiroValor=valorSerial;
+      checando++;
+    }
+    else if(valorSerial=='T' and checando>0 and primeiroValor=='T')
+      primeiroValor=='T';
+    else if(checando>0 and primeiroValor=='T' and comando[checando-1]!=valorSerial){
+      primeiroValor=='0';
+      checando=0;
+    }
+    else if (comando[checando-1]==valorSerial and primeiroValor=='T'){
+      checando++;
+      if (checando==4){
+        obter_vazao();
+        checando=0;
+        primeiroValor='0';
+      }
+    }
+    else
+      checando=0;
+  }
 }
